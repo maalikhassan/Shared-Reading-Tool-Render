@@ -42,14 +42,11 @@
       background-color: #fff;
       box-shadow: 0 4px 6px rgba(0,0,0,0.1);
     }
-    .nav-buttons {
+    .nav-buttons, .zoom-buttons, .auth-section {
       margin: 10px 0;
       display: flex;
       justify-content: center;
       gap: 10px;
-    }
-    .zoom-buttons {
-      display: none; /* Hide zoom buttons by default */
     }
     button {
       padding: 10px 20px;
@@ -63,12 +60,6 @@
     }
     button:hover {
       background-color: #0056b3;
-    }
-    .zoom-button {
-      padding: 5px;
-      width: 30px;
-      height: 30px;
-      border-radius: 50%;
     }
     #notes-section {
       width: 80%;
@@ -118,7 +109,7 @@
         width: 100%;
       }
       .zoom-buttons {
-        display: flex; /* Show zoom buttons on mobile */
+        display: flex;
         flex-direction: column;
         position: absolute;
         left: 10px;
@@ -133,23 +124,30 @@
 </head>
 <body>
   <header>Shared Reading Tool</header>
-  <input type="file" id="file-input" accept="application/pdf">
-  <div id="pdf-container">
+  <div class="auth-section">
+    <input type="text" id="username" placeholder="Username">
+    <input type="password" id="password" placeholder="Password">
+    <button id="login-button">Login</button>
+  </div>
+  <input type="file" id="file-input" accept="application/pdf" style="display: none;">
+  <div id="pdf-container" style="display: none;">
     <div id="cursor-layer"></div>
   </div>
-  <div id="progress-bar">
+  <div id="progress-bar" style="display: none;">
     <div id="progress"></div>
   </div>
-  <div class="nav-buttons">
+  <div class="nav-buttons" style="display: none;">
     <button id="prev-page">Previous Page</button>
     <button id="next-page">Next Page</button>
     <button id="ready-button">Ready</button>
+    <input type="number" id="page-number" placeholder="Page Number">
+    <button id="go-to-page-button">Go</button>
   </div>
-  <div class="zoom-buttons">
+  <div class="zoom-buttons" style="display: none;">
     <button id="zoom-in" class="zoom-button">+</button>
     <button id="zoom-out" class="zoom-button">-</button>
   </div>
-  <div id="notes-section">
+  <div id="notes-section" style="display: none;">
     <textarea id="notes" placeholder="Share your notes here..."></textarea>
   </div>
   <footer>Made by Maalik</footer>
@@ -159,6 +157,27 @@
     const zoomInButton = document.getElementById('zoom-in');
     const zoomOutButton = document.getElementById('zoom-out');
     let scale = 1;
+
+    const username = "open"; // Set your default username
+    const password = "sesame"; // Set your default password
+    const loginButton = document.getElementById('login-button');
+
+    loginButton.addEventListener('click', () => {
+      const enteredUsername = document.getElementById('username').value;
+      const enteredPassword = document.getElementById('password').value;
+
+      if (enteredUsername === username && enteredPassword === password) {
+        document.querySelector('.auth-section').style.display = 'none';
+        document.getElementById('file-input').style.display = 'block';
+        document.getElementById('pdf-container').style.display = 'block';
+        document.getElementById('progress-bar').style.display = 'block';
+        document.querySelector('.nav-buttons').style.display = 'flex';
+        document.querySelector('.zoom-buttons').style.display = 'flex';
+        document.getElementById('notes-section').style.display = 'block';
+      } else {
+        alert('Incorrect username or password!');
+      }
+    });
 
     if (isMobile) {
       zoomInButton.addEventListener('click', () => {
