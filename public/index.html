@@ -25,11 +25,18 @@
       font-size: 24px;
       box-shadow: 0 4px 6px rgba(0,0,0,0.1);
     }
+    .auth-section {
+      margin: 20px 0;
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+    }
     #file-input {
       margin: 20px 0;
       padding: 10px;
       border: 1px solid #ccc;
       border-radius: 5px;
+      display: none;
     }
     #pdf-container {
       width: 80%;
@@ -41,12 +48,20 @@
       margin-bottom: 20px;
       background-color: #fff;
       box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      display: none;
     }
-    .nav-buttons, .zoom-buttons, .auth-section {
+    .auth-section {
+      margin: 20px 0;
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+    }
+    .nav-buttons, .zoom-buttons {
       margin: 10px 0;
       display: flex;
       justify-content: center;
       gap: 10px;
+      display: none;
     }
     button {
       padding: 10px 20px;
@@ -67,6 +82,7 @@
       background-color: #fff;
       border-radius: 10px;
       box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      display: none;
     }
     #notes {
       width: 100%;
@@ -85,6 +101,7 @@
       overflow: hidden;
       margin: 20px 0;
       box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      display: none;
     }
     #progress {
       height: 100%;
@@ -129,25 +146,25 @@
     <input type="password" id="password" placeholder="Password">
     <button id="login-button">Login</button>
   </div>
-  <input type="file" id="file-input" accept="application/pdf" style="display: none;">
-  <div id="pdf-container" style="display: none;">
+  <input type="file" id="file-input" accept="application/pdf">
+  <div id="pdf-container">
     <div id="cursor-layer"></div>
   </div>
-  <div id="progress-bar" style="display: none;">
+  <div id="progress-bar">
     <div id="progress"></div>
   </div>
-  <div class="nav-buttons" style="display: none;">
+  <div class="nav-buttons">
     <button id="prev-page">Previous Page</button>
     <button id="next-page">Next Page</button>
     <button id="ready-button">Ready</button>
     <input type="number" id="page-number" placeholder="Page Number">
     <button id="go-to-page-button">Go</button>
   </div>
-  <div class="zoom-buttons" style="display: none;">
+  <div class="zoom-buttons">
     <button id="zoom-in" class="zoom-button">+</button>
     <button id="zoom-out" class="zoom-button">-</button>
   </div>
-  <div id="notes-section" style="display: none;">
+  <div id="notes-section">
     <textarea id="notes" placeholder="Share your notes here..."></textarea>
   </div>
   <footer>Made by Maalik</footer>
@@ -158,10 +175,11 @@
     const zoomOutButton = document.getElementById('zoom-out');
     let scale = 1;
 
-    const username = "open"; // Set your default username
-    const password = "sesame"; // Set your default password
+    const username = "defaultUsername"; // Set your default username
+    const password = "defaultPassword"; // Set your default password
     const loginButton = document.getElementById('login-button');
-
+    const pageNumberInput = document.getElementById('page-number');
+    const goToPageButton = document.getElementById('go-to-page-button');
     loginButton.addEventListener('click', () => {
       const enteredUsername = document.getElementById('username').value;
       const enteredPassword = document.getElementById('password').value;
@@ -190,6 +208,15 @@
         renderPage(pageNum, scale); // Update renderPage to accept scale
       });
     }
+
+    goToPageButton.addEventListener('click', () => {
+      const pageNum = parseInt(pageNumberInput.value);
+      if (!isNaN(pageNum) && pageNum > 0 && pageNum <= pdfDoc.numPages) {
+        renderPage(pageNum, scale);
+      } else {
+        alert('Invalid page number!');
+      }
+    });
 
     function renderPage(num, scale = 1) {
       pdfDoc.getPage(num).then(page => {
