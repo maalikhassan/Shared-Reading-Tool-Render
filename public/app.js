@@ -1,190 +1,198 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Shared Reading Tool</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 0;
-      padding: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: flex-start;
-      height: 100vh;
-      background-color: #f0f0f0;
-      text-align: center;
-    }
-    header {
-      width: 100%;
-      padding: 10px;
-      background-color: #4a4a4a;
-      color: white;
-      font-size: 24px;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    }
-    #file-input {
-      margin: 20px 0;
-      padding: 10px;
-      border: 1px solid #ccc;
-      border-radius: 5px;
-    }
-    #pdf-container {
-      width: 80%;
-      height: 70vh;
-      border: 1px solid #ccc;
-      border-radius: 10px;
-      overflow: auto;
-      position: relative;
-      margin-bottom: 20px;
-      background-color: #fff;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    }
-    .nav-buttons {
-      margin: 10px 0;
-      display: flex;
-      justify-content: center;
-      gap: 10px;
-    }
-    .zoom-buttons {
-      display: none; /* Hide zoom buttons by default */
-    }
-    button {
-      padding: 10px 20px;
-      font-size: 14px;
-      border: none;
-      border-radius: 5px;
-      background-color: #007bff;
-      color: white;
-      cursor: pointer;
-      transition: background-color 0.3s;
-    }
-    button:hover {
-      background-color: #0056b3;
-    }
-    .zoom-button {
-      padding: 5px;
-      width: 30px;
-      height: 30px;
-      border-radius: 50%;
-    }
-    #notes-section {
-      width: 80%;
-      margin: 10px 0;
-      background-color: #fff;
-      border-radius: 10px;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    }
-    #notes {
-      width: 100%;
-      height: 100px;
-      padding: 10px;
-      border: none;
-      border-radius: 10px;
-      font-size: 14px;
-      resize: none;
-    }
-    #progress-bar {
-      width: 80%;
-      height: 20px;
-      background-color: #e0e0e0;
-      border-radius: 10px;
-      overflow: hidden;
-      margin: 20px 0;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    }
-    #progress {
-      height: 100%;
-      background-color: #76c7c0;
-      width: 0;
-    }
-    footer {
-      font-size: 12px;
-      color: #555;
-      margin-top: 20px;
-    }
-    @media (max-width: 600px) {
-      #pdf-container {
-        width: 100%;
-        height: 70vh;
-      }
-      button {
-        padding: 8px 16px;
-        font-size: 14px;
-      }
-      #notes-section {
-        width: 100%;
-      }
-      .zoom-buttons {
-        display: flex; /* Show zoom buttons on mobile */
-        flex-direction: column;
-        position: absolute;
-        left: 10px;
-        top: 10px;
-      }
-    }
-  </style>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.6.347/pdf.min.js"></script>
-  <script>
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.6.347/pdf.worker.min.js';
-  </script>
-</head>
-<body>
-  <header>Shared Reading Tool</header>
-  <input type="file" id="file-input" accept="application/pdf">
-  <div id="pdf-container">
-    <div id="cursor-layer"></div>
-  </div>
-  <div id="progress-bar">
-    <div id="progress"></div>
-  </div>
-  <div class="nav-buttons">
-    <button id="prev-page">Previous Page</button>
-    <button id="next-page">Next Page</button>
-    <button id="ready-button">Ready</button>
-  </div>
-  <div class="zoom-buttons">
-    <button id="zoom-in" class="zoom-button">+</button>
-    <button id="zoom-out" class="zoom-button">-</button>
-  </div>
-  <div id="notes-section">
-    <textarea id="notes" placeholder="Share your notes here..."></textarea>
-  </div>
-  <footer>Made by Maalik</footer>
-  <script src="app.js"></script>
-  <script>
-    const isMobile = window.matchMedia("(max-width: 600px)").matches;
-    const zoomInButton = document.getElementById('zoom-in');
-    const zoomOutButton = document.getElementById('zoom-out');
-    let scale = 1;
+const pdfjsLib = window['pdfjs-dist/build/pdf'];
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.6.347/pdf.worker.min.js';
 
-    if (isMobile) {
-      zoomInButton.addEventListener('click', () => {
-        scale = Math.min(scale + 0.1, 3);
-        renderPage(pageNum, scale); // Update renderPage to accept scale
-      });
+const fileInput = document.getElementById('file-input');
+const pdfContainer = document.getElementById('pdf-container');
+const cursorLayer = document.getElementById('cursor-layer');
+const prevPageButton = document.getElementById('prev-page');
+const nextPageButton = document.getElementById('next-page');
+const readyButton = document.getElementById('ready-button');
+const notes = document.getElementById('notes');
+const progressBar = document.getElementById('progress');
+const socket = new WebSocket(`wss://${window.location.host}`);
 
-      zoomOutButton.addEventListener('click', () => {
-        scale = Math.max(scale - 0.1, 0.5);
-        renderPage(pageNum, scale); // Update renderPage to accept scale
-      });
-    }
+let pdfDoc = null;
+let pageNum = 1; // Move this here to avoid re-declaration conflicts
+let readyState = false;
+let peerReadyState = false;
+let notesContent = '';
 
-    function renderPage(num, scale = 1) {
-      pdfDoc.getPage(num).then(page => {
-        const viewport = page.getViewport({ scale: scale });
-        const canvas = document.createElement('canvas');
-        const context = canvas.getContext('2d');
-        canvas.height = viewport.height;
-        canvas.width = viewport.width;
-        pdfContainer.innerHTML = '';
-        pdfContainer.appendChild(canvas);
-        pdfContainer.appendChild(cursorLayer); // Ensure cursor layer is always on top
-        page.render({ canvasContext: context, viewport: viewport });
+fileInput.addEventListener('change', (event) => {
+  const file = event.target.files[0];
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const pdfData = new Uint8Array(e.target.result);
+      pdfjsLib.getDocument({ data: pdfData }).promise.then(pdf => {
+        pdfDoc = pdf;
+        pageNum = 1;
+        renderPage(pageNum);
+        updateProgressBar();
+      }).catch(error => {
+        console.error('Error rendering PDF:', error);
       });
+    };
+    reader.readAsArrayBuffer(file);
+  }
+});
+
+function renderPage(num) {
+  pdfDoc.getPage(num).then(page => {
+    const viewport = page.getViewport({ scale: 1 });
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    canvas.height = viewport.height;
+    canvas.width = viewport.width;
+    pdfContainer.innerHTML = '';
+    pdfContainer.appendChild(canvas);
+    pdfContainer.appendChild(cursorLayer); // Ensure cursor layer is always on top
+    page.render({ canvasContext: context, viewport: viewport });
+  });
+}
+
+prevPageButton.addEventListener('click', () => {
+  if (pageNum > 1) {
+    pageNum--;
+    renderPage(pageNum);
+    sendPageUpdate();
+    updateProgressBar();
+  }
+});
+
+nextPageButton.addEventListener('click', () => {
+  if (pageNum < pdfDoc.numPages) {
+    pageNum++;
+    renderPage(pageNum);
+    sendPageUpdate();
+    updateProgressBar();
+  }
+});
+
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'ArrowRight' && pageNum < pdfDoc.numPages) {
+    pageNum++;
+    renderPage(pageNum);
+    sendPageUpdate();
+    updateProgressBar();
+  } else if (event.key === 'ArrowLeft' && pageNum > 1) {
+    pageNum--;
+    renderPage(pageNum);
+    sendPageUpdate();
+    updateProgressBar();
+  }
+});
+
+readyButton.addEventListener('click', () => {
+  readyState = true;
+  console.log('Ready button clicked:', readyState);
+  sendReadyState();
+});
+
+notes.addEventListener('input', (event) => {
+  notesContent = event.target.value;
+  sendNotesUpdate();
+});
+
+pdfContainer.addEventListener('mousemove', (event) => {
+  if (socket.readyState === WebSocket.OPEN) {
+    const rect = pdfContainer.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    sendCursorUpdate(x, y);
+  }
+});
+
+socket.onopen = () => {
+  console.log('WebSocket connection established.');
+};
+
+socket.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+  console.log('Received data:', data);
+  if (data.type === 'page-update') {
+    pageNum = data.pageNum;
+    renderPage(pageNum);
+    updateProgressBar();
+  } else if (data.type === 'ready-state') {
+    peerReadyState = data.readyState;
+    checkIfBothReady();
+  } else if (data.type === 'notes-update') {
+    notesContent = data.notesContent;
+    notes.value = notesContent;
+  }
+};
+
+function sendPageUpdate() {
+  if (socket.readyState === WebSocket.OPEN) {
+    socket.send(JSON.stringify({
+      type: 'page-update',
+      pageNum: pageNum
+    }));
+  }
+}
+
+function sendReadyState() {
+  if (socket.readyState === WebSocket.OPEN) {
+    socket.send(JSON.stringify({
+      type: 'ready-state',
+      readyState: readyState
+    }));
+  }
+}
+
+function sendCursorUpdate(x, y) {
+  if (socket.readyState === WebSocket.OPEN) {
+    socket.send(JSON.stringify({
+      type: 'cursor-update',
+      x: x,
+      y: y
+    }));
+  }
+}
+
+function sendNotesUpdate() {
+  if (socket.readyState === WebSocket.OPEN) {
+    socket.send(JSON.stringify({
+      type: 'notes-update',
+      notesContent: notesContent
+    }));
+  }
+}
+
+function checkIfBothReady() {
+  console.log('Checking readiness:', readyState, peerReadyState);
+  if (readyState && peerReadyState) {
+    readyState = false;
+    peerReadyState = false;
+    console.log('Both users are ready');
+    if (pageNum < pdfDoc.numPages) {
+      pageNum++;
+      renderPage(pageNum);
+      sendPageUpdate();
+      updateProgressBar();
     }
-  </script>
-</body>
-</html>
+  }
+}
+
+function updateProgressBar() {
+  const progress = (pageNum / pdfDoc.numPages) * 100;
+  progressBar.style.width = `${progress}%`;
+}
+
+function addPeerCursor() {
+  if (!peerCursor) {
+    peerCursor = document.createElement('div');
+    peerCursor.className = 'cursor';
+    cursorLayer.appendChild(peerCursor);
+  }
+  peerCursor.style.display = 'block';  // Ensure it's always visible
+}
+
+function updatePeerCursor(x, y) {
+  if (!peerCursor) {
+    addPeerCursor();
+  }
+  peerCursor.style.left = `${x}px`;
+  peerCursor.style.top = `${y}px`;
+  peerCursor.style.display = 'block';
+}
