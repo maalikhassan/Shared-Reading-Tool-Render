@@ -9,16 +9,12 @@ const nextPageButton = document.getElementById('next-page');
 const readyButton = document.getElementById('ready-button');
 const notes = document.getElementById('notes');
 const progressBar = document.getElementById('progress');
-const pageNumberInput = document.getElementById('page-number');
-const goToPageButton = document.getElementById('go-to-page-button');
 const socket = new WebSocket(`wss://${window.location.host}`);
-
 let pdfDoc = null;
-let pageNum = 1; // Move this here to avoid re-declaration conflicts
+let pageNum = 1;
 let readyState = false;
 let peerReadyState = false;
 let notesContent = '';
-let scale = 1; // To manage zoom scale
 
 fileInput.addEventListener('change', (event) => {
   const file = event.target.files[0];
@@ -38,9 +34,10 @@ fileInput.addEventListener('change', (event) => {
     reader.readAsArrayBuffer(file);
   }
 });
-function renderPage(num, scale = 1) {
+
+function renderPage(num) {
   pdfDoc.getPage(num).then(page => {
-    const viewport = page.getViewport({ scale: scale });
+    const viewport = page.getViewport({ scale: 1 });
     const canvas = document.createElement('canvas');
     const context = canvas.getContext('2d');
     canvas.height = viewport.height;
@@ -55,7 +52,7 @@ function renderPage(num, scale = 1) {
 prevPageButton.addEventListener('click', () => {
   if (pageNum > 1) {
     pageNum--;
-    renderPage(pageNum, scale);
+    renderPage(pageNum);
     sendPageUpdate();
     updateProgressBar();
   }
@@ -64,20 +61,21 @@ prevPageButton.addEventListener('click', () => {
 nextPageButton.addEventListener('click', () => {
   if (pageNum < pdfDoc.numPages) {
     pageNum++;
-    renderPage(pageNum, scale);
+    renderPage(pageNum);
     sendPageUpdate();
     updateProgressBar();
   }
 });
+
 document.addEventListener('keydown', (event) => {
   if (event.key === 'ArrowRight' && pageNum < pdfDoc.numPages) {
     pageNum++;
-    renderPage(pageNum, scale);
+    renderPage(pageNum);
     sendPageUpdate();
     updateProgressBar();
   } else if (event.key === 'ArrowLeft' && pageNum > 1) {
     pageNum--;
-    renderPage(pageNum, scale);
+    renderPage(pageNum);
     sendPageUpdate();
     updateProgressBar();
   }
@@ -88,7 +86,6 @@ readyButton.addEventListener('click', () => {
   console.log('Ready button clicked:', readyState);
   sendReadyState();
 });
-
 notes.addEventListener('input', (event) => {
   notesContent = event.target.value;
   sendNotesUpdate();
@@ -102,6 +99,7 @@ pdfContainer.addEventListener('mousemove', (event) => {
     sendCursorUpdate(x, y);
   }
 });
+
 socket.onopen = () => {
   console.log('WebSocket connection established.');
 };
@@ -111,7 +109,7 @@ socket.onmessage = (event) => {
   console.log('Received data:', data);
   if (data.type === 'page-update') {
     pageNum = data.pageNum;
-    renderPage(pageNum, scale);
+    renderPage(pageNum);
     updateProgressBar();
   } else if (data.type === 'ready-state') {
     peerReadyState = data.readyState;
@@ -167,7 +165,7 @@ function checkIfBothReady() {
     console.log('Both users are ready');
     if (pageNum < pdfDoc.numPages) {
       pageNum++;
-      renderPage(pageNum, scale);
+      renderPage(pageNum);
       sendPageUpdate();
       updateProgressBar();
     }
