@@ -11,6 +11,8 @@ app.use(express.static('public'));
 wss.on('connection', ws => {
   ws.on('message', message => {
     const data = JSON.parse(message);
+    
+    // Broadcast to all other connected clients
     wss.clients.forEach(client => {
       if (client !== ws && client.readyState === WebSocket.OPEN) {
         client.send(JSON.stringify(data));
@@ -23,4 +25,3 @@ const port = process.env.PORT || 8080;
 server.listen(port, () => {
   console.log(`Server is listening on port ${port}`);
 });
-

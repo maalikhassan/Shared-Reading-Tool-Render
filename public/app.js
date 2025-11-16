@@ -9,12 +9,23 @@ const nextPageButton = document.getElementById('next-page');
 const readyButton = document.getElementById('ready-button');
 const notes = document.getElementById('notes');
 const progressBar = document.getElementById('progress');
+const chatInput = document.getElementById('chat-input');
+const sendButton = document.getElementById('send-button');
+const messagesContainer = document.getElementById('messages');
+const deviceInfo = document.getElementById('device-info');
 const socket = new WebSocket(`wss://${window.location.host}`);
+
+// Generate a unique device ID
+const deviceId = 'Device-' + Math.random().toString(36).substr(2, 9).toUpperCase();
+
 let pdfDoc = null;
 let pageNum = 1;
 let readyState = false;
 let peerReadyState = false;
 let notesContent = '';
+
+// Display device information
+deviceInfo.textContent = `Your Device: ${deviceId}`;
 
 fileInput.addEventListener('change', (event) => {
   const file = event.target.files[0];
@@ -117,6 +128,8 @@ socket.onmessage = (event) => {
   } else if (data.type === 'notes-update') {
     notesContent = data.notesContent;
     notes.value = notesContent;
+  } else if (data.type === 'chat-message') {
+    displayReceivedMessage(data.senderDeviceId, data.message, data.timestamp);
   }
 };
 
@@ -194,3 +207,67 @@ function updatePeerCursor(x, y) {
   peerCursor.style.top = `${y}px`;
   peerCursor.style.display = 'block';
 }
+
+function sendChatMessage(message) {
+  if (message.trim() === '') return;
+  
+  const timestamp = new Date().toLocaleTimeString();
+  
+  // Display sent message
+  displaySentMessage(message, timestamp);
+  
+  // Send to other clients
+  if (socket.readyState === WebSocket.OPEN) {
+    socket.send(JSON.stringify({
+      type: 'chat-message',
+      senderDeviceId: deviceId,
+      message: message,
+      timestamp: timestamp
+    }));
+  }
+  
+  // Clear input
+  chatInput.value = '';
+}
+
+function displaySentMessage(message, timestamp) {
+  const messageDiv = document.createElement('div');
+  messageDiv.className = 'message sent';
+  messageDiv.innerHTML = `
+    <div class="message-sender">You (${deviceId})</div>
+    <div>${escapeHtml(message)}</div>
+    <div class="message-time">${timestamp}</div>
+  `;
+  messagesContainer.appendChild(messageDiv);
+  messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+function displayReceivedMessage(senderDeviceId, message, timestamp) {
+  const messageDiv = document.createElement('div');
+  messageDiv.className = 'message received';
+  messageDiv.innerHTML = `
+    <div class="message-sender">${senderDeviceId}</div>
+    <div>${escapeHtml(message)}</div>
+    <div class="message-time">${timestamp}</div>
+  `;
+  messagesContainer.appendChild(messageDiv);
+  messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// Chat event listeners
+sendButton.addEventListener('click', () => {
+  sendChatMessage(chatInput.value);
+});
+
+chatInput.addEventListener('keypress', (event) => {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    sendChatMessage(chatInput.value);
+  }
+});
