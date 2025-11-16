@@ -1,6 +1,3 @@
-const pdfjsLib = window['pdfjs-dist/build/pdf'];
-pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.6.347/pdf.worker.min.js';
-
 const fileInput = document.getElementById('file-input');
 const pdfContainer = document.getElementById('pdf-container');
 const cursorLayer = document.getElementById('cursor-layer');
@@ -15,14 +12,22 @@ const messagesContainer = document.getElementById('messages');
 const deviceInfo = document.getElementById('device-info');
 const socket = new WebSocket(`wss://${window.location.host}`);
 
+// PDF.js setup
+const pdfjsLib = window['pdfjs-dist/build/pdf'] || window.pdfjsLib;
+if (pdfjsLib) {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.6.347/pdf.worker.min.js';
+}
+
 // Generate a unique device ID
 const deviceId = 'Device-' + Math.random().toString(36).substr(2, 9).toUpperCase();
 
 let pdfDoc = null;
 let pageNum = 1;
+let scale = 1;
 let readyState = false;
 let peerReadyState = false;
 let notesContent = '';
+let peerCursor = null;
 
 // Display device information
 deviceInfo.textContent = `Your Device: ${deviceId}`;
@@ -36,57 +41,76 @@ fileInput.addEventListener('change', (event) => {
       pdfjsLib.getDocument({ data: pdfData }).promise.then(pdf => {
         pdfDoc = pdf;
         pageNum = 1;
+        scale = 1;
         renderPage(pageNum);
         updateProgressBar();
       }).catch(error => {
         console.error('Error rendering PDF:', error);
+        alert('Error loading PDF. Please try again.');
       });
     };
     reader.readAsArrayBuffer(file);
   }
 });
 
-function renderPage(num) {
+function renderPage(num, pageScale = 1) {
+  if (!pdfDoc) return;
+  
   pdfDoc.getPage(num).then(page => {
-    const viewport = page.getViewport({ scale: 1 });
+    const viewport = page.getViewport({ scale: pageScale });
     const canvas = document.createElement('canvas');
     const context = canvas.getContext('2d');
     canvas.height = viewport.height;
     canvas.width = viewport.width;
+    canvas.style.display = 'block';
+    canvas.style.margin = '0 auto';
+    
     pdfContainer.innerHTML = '';
     pdfContainer.appendChild(canvas);
-    pdfContainer.appendChild(cursorLayer); // Ensure cursor layer is always on top
-    page.render({ canvasContext: context, viewport: viewport });
+    pdfContainer.appendChild(cursorLayer);
+    
+    const renderContext = {
+      canvasContext: context,
+      viewport: viewport
+    };
+    
+    page.render(renderContext).promise.catch(error => {
+      console.error('Error rendering page:', error);
+    });
+  }).catch(error => {
+    console.error('Error getting page:', error);
   });
 }
 
 prevPageButton.addEventListener('click', () => {
-  if (pageNum > 1) {
+  if (pdfDoc && pageNum > 1) {
     pageNum--;
-    renderPage(pageNum);
+    renderPage(pageNum, scale);
     sendPageUpdate();
     updateProgressBar();
   }
 });
 
 nextPageButton.addEventListener('click', () => {
-  if (pageNum < pdfDoc.numPages) {
+  if (pdfDoc && pageNum < pdfDoc.numPages) {
     pageNum++;
-    renderPage(pageNum);
+    renderPage(pageNum, scale);
     sendPageUpdate();
     updateProgressBar();
   }
 });
 
 document.addEventListener('keydown', (event) => {
+  if (!pdfDoc) return;
+  
   if (event.key === 'ArrowRight' && pageNum < pdfDoc.numPages) {
     pageNum++;
-    renderPage(pageNum);
+    renderPage(pageNum, scale);
     sendPageUpdate();
     updateProgressBar();
   } else if (event.key === 'ArrowLeft' && pageNum > 1) {
     pageNum--;
-    renderPage(pageNum);
+    renderPage(pageNum, scale);
     sendPageUpdate();
     updateProgressBar();
   }
@@ -120,7 +144,7 @@ socket.onmessage = (event) => {
   console.log('Received data:', data);
   if (data.type === 'page-update') {
     pageNum = data.pageNum;
-    renderPage(pageNum);
+    renderPage(pageNum, scale);
     updateProgressBar();
   } else if (data.type === 'ready-state') {
     peerReadyState = data.readyState;
@@ -271,3 +295,25 @@ chatInput.addEventListener('keypress', (event) => {
     sendChatMessage(chatInput.value);
   }
 });
+
+// Zoom button listeners
+const zoomInButton = document.getElementById('zoom-in');
+const zoomOutButton = document.getElementById('zoom-out');
+
+if (zoomInButton) {
+  zoomInButton.addEventListener('click', () => {
+    scale = Math.min(scale + 0.2, 3);
+    if (pdfDoc) {
+      renderPage(pageNum, scale);
+    }
+  });
+}
+
+if (zoomOutButton) {
+  zoomOutButton.addEventListener('click', () => {
+    scale = Math.max(scale - 0.2, 0.5);
+    if (pdfDoc) {
+      renderPage(pageNum, scale);
+    }
+  });
+}

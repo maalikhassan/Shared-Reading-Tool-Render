@@ -65,10 +65,11 @@
       background-color: #0056b3;
     }
     .zoom-button {
-      padding: 5px;
-      width: 30px;
-      height: 30px;
-      border-radius: 50%;
+      padding: 10px 15px;
+      width: auto;
+      height: auto;
+      border-radius: 5px;
+      font-size: 13px;
     }
     #notes-section {
       width: 80%;
@@ -220,13 +221,11 @@
     <div id="progress"></div>
   </div>
   <div class="nav-buttons">
-    <button id="prev-page">Previous Page</button>
-    <button id="next-page">Next Page</button>
+    <button id="prev-page">← Previous</button>
+    <button id="next-page">Next →</button>
     <button id="ready-button">Ready</button>
-  </div>
-  <div class="zoom-buttons">
-    <button id="zoom-in" class="zoom-button">+</button>
-    <button id="zoom-out" class="zoom-button">-</button>
+    <button id="zoom-in" class="zoom-button" title="Zoom In (+)">🔍+</button>
+    <button id="zoom-out" class="zoom-button" title="Zoom Out (-)">🔍−</button>
   </div>
   <div id="notes-section">
     <textarea id="notes" placeholder="Share your notes here..."></textarea>
@@ -242,36 +241,42 @@
   <footer>Made by Maalik</footer>
   <script src="app.js"></script>
   <script>
-    const isMobile = window.matchMedia("(max-width: 600px)").matches;
+    // Zoom functionality - works on all devices
     const zoomInButton = document.getElementById('zoom-in');
     const zoomOutButton = document.getElementById('zoom-out');
-    let scale = 1;
 
-    if (isMobile) {
-      zoomInButton.addEventListener('click', () => {
-        scale = Math.min(scale + 0.1, 3);
-        renderPage(pageNum, scale); // Update renderPage to accept scale
-      });
+    zoomInButton.addEventListener('click', () => {
+      scale = Math.min(scale + 0.2, 3);
+      if (pdfDoc) {
+        renderPage(pageNum, scale);
+      }
+    });
 
-      zoomOutButton.addEventListener('click', () => {
-        scale = Math.max(scale - 0.1, 0.5);
-        renderPage(pageNum, scale); // Update renderPage to accept scale
-      });
-    }
+    zoomOutButton.addEventListener('click', () => {
+      scale = Math.max(scale - 0.2, 0.5);
+      if (pdfDoc) {
+        renderPage(pageNum, scale);
+      }
+    });
 
-    function renderPage(num, scale = 1) {
-      pdfDoc.getPage(num).then(page => {
-        const viewport = page.getViewport({ scale: scale });
-        const canvas = document.createElement('canvas');
-        const context = canvas.getContext('2d');
-        canvas.height = viewport.height;
-        canvas.width = viewport.width;
-        pdfContainer.innerHTML = '';
-        pdfContainer.appendChild(canvas);
-        pdfContainer.appendChild(cursorLayer); // Ensure cursor layer is always on top
-        page.render({ canvasContext: context, viewport: viewport });
-      });
-    }
+    // Keyboard zoom shortcuts
+    document.addEventListener('keydown', (event) => {
+      if (event.ctrlKey || event.metaKey) {
+        if (event.key === '+' || event.key === '=') {
+          event.preventDefault();
+          scale = Math.min(scale + 0.2, 3);
+          if (pdfDoc) {
+            renderPage(pageNum, scale);
+          }
+        } else if (event.key === '-') {
+          event.preventDefault();
+          scale = Math.max(scale - 0.2, 0.5);
+          if (pdfDoc) {
+            renderPage(pageNum, scale);
+          }
+        }
+      }
+    });
   </script>
 </body>
 </html>
